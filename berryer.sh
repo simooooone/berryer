@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Description: Auto system to setup a privacy wall on Raspberry Pi with docker
+# Description: Bash-assisted setup of a privacywall on a Raspberry Pi 3B+ with Docker
 #
 # Copyright (C) 2019 Simone Foschi <s.foschi@gmail.com>
 #
@@ -36,7 +36,7 @@ then
 
     read -p 'Do you want install docker-compose? [y/n]: ' DOCKER_COMPOSE
 
-    if [ $DOCKER_COMPOSE == 'Y' ] || [ $DOCKER_COMPOSE == 'y' ]
+    if [ $DOCKER_COMPOSE == "Y" ] || [ $DOCKER_COMPOSE == "y" ]
     then
         if [[ "$(id -u)" -ne 0 ]]; then
             echo "Script must be run under sudo. Reexecute the procedure to install this component."
@@ -65,7 +65,7 @@ then
         docker stop portainer 2>/dev/null
         docker rm portainer 2>/dev/null
         docker pull portainer/portainer
-        docker volume create portainer_data
+        docker volume create 
         docker run -d -p 9000:9000 --name portainer --restart=unless-stopped -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer
 
         echo "Portainer is active on port 9000"
@@ -73,10 +73,19 @@ then
         echo "or: http://${IP}:9000"
     fi
 
-    
+    read -p "do you want to update OpenVPN? [y/n]: " OPENVPN_UPDATE
+
+    if [ $OPENVPN_UPDATE == "Y" ] || [ $OPENVPN_UPDATE == "y" ]
+    then
+        docker stop openvpn 2>/dev/null
+        docker rm openvpn 2>/dev/null
+        docker pull giggio/openvpn-arm
+        docker run -v $OVPN_DATA:/etc/openvpn -d -p 1194:1194/udp --name openvpn --cap-add=NET_ADMIN --restart=unless-stopped giggio/openvpn-arm
+    fi
+
     read -p "do you want to install OpenVPN? [y/n]: " OPENVPN
 
-    if [ $OPENVPN == 'Y' ] || [ $OPENVPN == 'y' ]
+    if [ $OPENVPN == "Y" ] || [ $OPENVPN == "y" ]
     then
         if [[ "$(id -u)" -ne 0 ]]; then
             echo "Script must be run under sudo. Reexecute the procedure to install this component."
@@ -143,14 +152,13 @@ then
             --restart unless-stopped \
             --cap-add=NET_ADMIN \
             --dns=127.0.0.1 --dns=1.1.1.1 \
-            pihole/pihole:latest
-
-        echo "Pihole administration visible at http://pi.hole/admin"
+            pihole/pihole:latest  
+        if [ "$(docker inspect -f "{{.State.Health.Status}}" pihole)" == "healthy" ] ; then
+                printf ' OK'
+                echo -e "\n$(docker logs pihole 2> /dev/null | grep 'password:')"
+                exit 0
+        fi
         echo "or http://${IP}/admin"
-        #echo "Your password is " docker logs pihole 2> /dev/null | grep 'random'
-        read -p "Insert admin password for pihole: " PASSWORD_PIHOLE
-        docker container exec pihole pihole -a -p PASSWORD_PIHOLE
-        echo "Password set"
         echo "Pihole installed"
     fi
 
@@ -178,7 +186,7 @@ then
             --restart unless-stopped \
             -v /mnt/user/appdata/motioneye/media:/home/nobody/media \
             -v /mnt/user/appdata/motioneye/config:/config \
-            vividboarder/rpi-motioneye
+            jshridha/rpi-motioneye
 
         echo "Motioneye installed and visible at"
         echo "http://${IP}:8765"
